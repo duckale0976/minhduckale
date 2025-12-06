@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinhducKale v9 - Admin Mode</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    
+    <style>
+        /* CORE STYLES (Retained v8/v7 Glassmorphism) */
+        body { transition: background-color 0.5s, color 0.5s; background-color: #e0f2fe; color: #1e293b; }
+        .dark body { background-color: #0f172a; color: #f1f5f9; }
+        .bg-blob { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.8; z-index: -1; animation: blob 15s infinite alternate; pointer-events: none; }
+        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: #93c5fd; }
+        .blob-2 { bottom: -10%; right: -10%; width: 500px; height: 500px; background: #6ee7b7; }
+        .blob-3 { top: 40%; left: 40%; width: 400px; height: 400px; background: #c4b5fd; }
+        .dark .blob-1 { background: #1e40af; opacity: 0.4; } 
+        .dark .blob-2 { background: #065f46; opacity: 0.4; } 
+        .dark .blob-3 { background: #5b21b6; opacity: 0.4; }
+        .glass-panel { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); }
+        .dark .glass-panel { background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-card { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.6); transition: all 0.3s ease; }
+        .dark .glass-card { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .segmented-control { background: rgba(200, 200, 200, 0.4); backdrop-filter: blur(10px); padding: 4px; border-radius: 12px; display: inline-flex; overflow-x: auto; }
+        .segment-btn.active { background: white; color: #0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .dark .segment-btn.active { background: #334155; color: white; }
+        .ios-input { background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.8); color: #0f172a; font-weight: 600; }
+        .dark .ios-input { background: rgba(0, 0, 0, 0.5); border-color: rgba(255,255,255,0.2); color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div id="loginOverlay" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center">
+        <div class="glass-card p-8 rounded-3xl w-[90%] max-w-sm text-center">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white text-3xl mb-4 shadow-lg">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold mb-4 dark:text-white" id="loginStatusText">Đang kiểm tra trạng thái...</h2>
+            <button onclick="login()" id="loginButton" class="hidden w-full py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold flex items-center justify-center gap-2 shadow transition">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5"> Đăng nhập bằng Google
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-4 max-w-7xl h-screen flex flex-col blur-sm transition duration-500" id="mainApp">
+        
+        <header class="glass-panel rounded-3xl px-4 py-3 mb-4 flex flex-col lg:flex-row justify-between items-center z-20 gap-3">
+            <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-cyan-600 flex items-center justify-center text-white shadow-lg">
+                        <i class="fa-solid fa-server text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Minhduc<span class="text-blue-600">Kale</span></h1>
+                        <p class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">v9.0 Admin Ready</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleAdminMode()" id="adminToggleBtn" class="w-9 h-9 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-white transition flex items-center justify-center text-slate-700 dark:text-slate-200" title="Admin Mode"><i class="fa-solid fa-lock"></i></button>
+                    <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-white transition text-yellow-600 dark:text-yellow-400"><i id="darkIcon" class="fa-solid fa-moon"></i></button>
+                </div>
+            </div>
+            
+            <div class="segmented-control w-full lg:w-auto justify-start lg:justify-center overflow-x-auto scrollbar-hide">
+                <div class="segment-btn active" onclick="switchTab('docs')"><i class="fa-solid fa-folder-open mr-1"></i>Tài liệu</div>
+                <div class="segment-btn" onclick="switchTab('drugs')"><i class="fa-solid fa-pills mr-1"></i>Thuốc</div>
+                <div class="segment-btn" onclick="switchTab('notes')"><i class="fa-solid fa-note-sticky mr-1"></i>Note</div>
+                <div class="segment-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i>Chat</div>
+                <div class="segment-btn" onclick="switchTab('tools')"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>Tools</div>
+            </div>
+
+            <div class="hidden lg:flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-white/60 dark:bg-white/10 hover:bg-white transition flex items-center justify-center text-slate-700 dark:text-slate-200" title="User"><i class="fa-solid fa-user"></i></div>
+                <div class="flex items-center gap-2 cursor-pointer hover:bg-white/40 p-1 rounded-lg transition" onclick="logout()">
+                    <img id="userAvatar" src="" class="w-8 h-8 rounded-full border border-white">
+                    <span id="userName" class="text-xs font-bold text-slate-800 dark:text-white">Loading...</span>
+                    <i class="fa-solid fa-right-from-bracket text-xs text-red-500 ml-1" title="Đăng xuất"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden pb-2">
+            
+            <div class="lg:col-span-8 flex flex-col h-full overflow-hidden relative glass-panel rounded-3xl p-1 border-0 bg-transparent shadow-none">
+                
+                <div id="view-docs" class="flex flex-col gap-4 h-full p-2 transition-opacity duration-300">
+                    <div class="flex gap-2 relative z-10">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-slate-500"></i>
+                            <input id="searchInput" type="text" onkeyup="renderFolders()" class="w-full pl-10 pr-4 py-3 rounded-xl ios-input text-base placeholder-slate-500 shadow-sm" placeholder="Tìm trên mây...">
+                        </div>
+                        <button onclick="toggleStarFilter()" id="btnStar" class="w-12 rounded-xl bg-white/60 dark:bg-slate-700 hover:text-yellow-500 text-slate-400 transition"><i class="fa-solid fa-star text-lg"></i></button>
+                        <button onclick="openAddDocModal('add')" class="w-12 rounded-xl bg-slate-900 dark:bg-blue-600 text-white shadow-lg transition"><i class="fa-solid fa-plus text-lg"></i></button>
+                    </div>
+                    <div id="breadcrumb" class="hidden flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 px-2"><button onclick="renderFolders()">Home</button> / <span id="curFolder" class="text-blue-600">Folder</span></div>
+                    
+                    <div id="loadingDocs" class="flex justify-center py-10"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500"></i></div>
+                    
+                    <div id="docsList" class="flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-3 content-start pb-20"></div>
+                </div>
+
+                <div id="view-drugs" class="hidden flex-col gap-4 h-full p-2 fade-in">...</div>
+                <div id="view-notes" class="hidden flex-col h-full p-2 fade-in gap-3">...</div>
+                <div id="view-chat" class="hidden flex-col h-full fade-in p-2">...</div>
+                <div id="view-tools" class="hidden flex-col gap-3 h-full overflow-y-auto pb-20 fade-in p-2">...</div>
+            </div>
+
+            <div class="lg:col-span-4 flex flex-col gap-4 h-full overflow-hidden">
+                <div class="glass-card p-5 rounded-3xl relative overflow-hidden group">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-14 h-14 rounded-full p-1 bg-gradient-to-br from-blue-500 to-cyan-400"><img src="https://ui-avatars.com/api/?name=Dao+Minh+Duc&background=fff&color=007bff" class="w-full h-full rounded-full object-cover"></div>
+                        <div><h3 class="font-extrabold text-slate-900 dark:text-white">Đào Minh Đức</h3><p class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full w-fit">Admin</p></div>
+                    </div>
+                    <div class="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                        <div class="flex items-center gap-3"><i class="fa-solid fa-phone text-green-600"></i><span class="font-medium">0976 969 072</span></div>
+                        <div class="flex items-center gap-3"><i class="fa-solid fa-envelope text-red-600"></i><span class="font-medium truncate">duckale0976@gmail.com</span></div>
+                        <a href="https://facebook.com/minhducdao02" target="_blank" class="flex items-center gap-3 hover:text-blue-600 transition"><i class="fa-brands fa-facebook-f text-blue-600"></i><span class="font-medium">minhducdao02</span></a>
+                    </div>
+                </div>
+                
+                <div class="glass-panel p-5 rounded-3xl shadow-lg relative overflow-hidden flex-1 flex flex-col justify-end">...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addDocModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
+        <div class="bg-white/95 dark:bg-slate-800/95 w-[90%] md:w-[400px] p-6 rounded-3xl shadow-2xl">
+            <h3 id="modalTitle" class="font-extrabold text-lg dark:text-white mb-4">Thêm Tài Liệu Mới</h3>
+            <input type="hidden" id="docIdToEdit">
+            <div class="space-y-3">
+                <input id="newDocTitle" class="w-full ios-input p-3 rounded-xl" placeholder="Tên tài liệu">
+                <select id="newDocFolder" class="w-full ios-input p-3 rounded-xl"></select>
+                <input id="newDocLink" class="w-full ios-input p-3 rounded-xl" placeholder="Link Drive">
+                <div class="flex gap-2 pt-2">
+                    <button onclick="document.getElementById('addDocModal').classList.add('hidden')" class="flex-1 py-2 bg-slate-200 rounded-xl font-bold text-slate-600">Hủy</button>
+                    <button onclick="saveDocumentChanges()" class="flex-1 py-2 bg-blue-600 rounded-xl font-bold text-white">Lưu Lên Mây</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcfs8LFgPeAkGyaSkmJeECoRBEwtfRv8E",
+            authDomain: "minhduckale1.firebaseapp.com",
+            databaseURL: "https://minhduckale1-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "minhduckale1",
+            storageBucket: "minhduckale1.firebasestorage.app",
+            messagingSenderId: "479002042854",
+            appId: "1:479002042854:web:c9e4b614ad48fefd10f627",
+            measurementId: "G-GWWCJ6BNLF"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const rtdb = firebase.database();
+        let currentUser = null;
+        let isAdminMode = false; // Flag for local editing UI
+
+        // --- AUTHENTICATION LOGIC ---
+        function login() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(e => { alert("Lỗi đăng nhập: " + e.message); });
+        }
+        function logout() { auth.signOut(); }
+        
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('blur-sm');
+                document.getElementById('userName').innerText = user.displayName.split(' ')[0];
+                document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name='+user.displayName;
+                
+                loadDocs(); // Bắt đầu tải dữ liệu sau khi đăng nhập
+            } else {
+                currentUser = null;
+                document.getElementById('loginStatusText').innerText = "Vui lòng đăng nhập để sử dụng.";
+                document.getElementById('loginButton').classList.remove('hidden');
+            }
+        });
+
+        // --- ADMIN MODE LOGIC (Mật khẩu "0000") ---
+        function toggleAdminMode() {
+            if (!currentUser) return alert("Bạn cần đăng nhập bằng Google trước.");
+            if (isAdminMode) {
+                isAdminMode = false;
+                document.getElementById('adminToggleBtn').classList.remove('bg-red-500', 'text-white');
+                document.getElementById('adminToggleBtn').classList.add('bg-white/60', 'text-slate-700');
+                document.getElementById('adminToggleBtn').innerHTML = '<i class="fa-solid fa-lock"></i>';
+                alert("Đã tắt chế độ quản trị.");
+                renderFolders(); // Refresh UI to hide edit buttons
+                return;
+            }
+
+            const password = prompt("Nhập mật khẩu quản trị (Mật khẩu mặc định: 0000):");
+            if (password === "0000") {
+                isAdminMode = true;
+                document.getElementById('adminToggleBtn').classList.remove('bg-white/60', 'text-slate-700');
+                document.getElementById('adminToggleBtn').classList.add('bg-red-500', 'text-white');
+                document.getElementById('adminToggleBtn').innerHTML = '<i class="fa-solid fa-lock-open"></i>';
+                alert("Đã bật chế độ quản trị!");
+                renderFolders(); // Refresh UI to show edit buttons
+            } else if (password !== null) {
+                alert("Mật khẩu không đúng.");
+            }
+        }
+
+        // --- 4. DYNAMIC DATA (FIRESTORE) & EDIT LOGIC ---
+        const folders = { "capcuu": "1. Cấp cứu", "noi": "2. Nội khoa", "ngoai": "3. Ngoại khoa", "nhi": "4. Nhi khoa", "duoc": "5. Dược lý", "khac": "6. Khác" };
+        let allDocs = [];
+        let bookmarks = JSON.parse(localStorage.getItem('mdk_fav') || '[]');
+        let filterStar = false;
+        
+        function loadDocs() {
+            document.getElementById('loadingDocs').classList.remove('hidden');
+            db.collection('documents').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                allDocs = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                const staticDocs = [{id:'s1', title:'Link Drive Tổng', folder:'khac', url:'https://drive.google.com'}];
+                allDocs = [...allDocs, ...staticDocs];
+                
+                document.getElementById('loadingDocs').classList.add('hidden');
+                renderFolders();
+            }, e => { console.error("Firestore Error:", e); alert("Lỗi kết nối CSDL! Kiểm tra Firestore Rules."); });
+        }
+
+        // Add/Edit Modal
+        function openAddDocModal(mode, docId = null) {
+            const modal = document.getElementById('addDocModal');
+            const titleEl = document.getElementById('modalTitle');
+            const folderSel = document.getElementById('newDocFolder');
+            
+            folderSel.innerHTML = ''; 
+            Object.keys(folders).forEach(k => folderSel.innerHTML += `<option value="${k}">${folders[k]}</option>`);
+
+            if (mode === 'edit' && docId) {
+                const doc = allDocs.find(d => d.id === docId);
+                if (!doc) return;
+                titleEl.innerText = "Chỉnh Sửa Tài Liệu";
+                document.getElementById('docIdToEdit').value = docId;
+                document.getElementById('newDocTitle').value = doc.title;
+                document.getElementById('newDocFolder').value = doc.folder;
+                document.getElementById('newDocLink').value = doc.url;
+            } else {
+                titleEl.innerText = "Thêm Tài Liệu Mới";
+                document.getElementById('docIdToEdit').value = "";
+                document.getElementById('newDocTitle').value = "";
+                document.getElementById('newDocLink').value = "";
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function saveDocumentChanges() {
+            const id = document.getElementById('docIdToEdit').value;
+            const title = document.getElementById('newDocTitle').value;
+            const folder = document.getElementById('newDocFolder').value;
+            const link = document.getElementById('newDocLink').value;
+
+            if(!title || !link) return alert("Thiếu thông tin");
+
+            const docData = { title, folder, url: link };
+
+            if (id) {
+                // EDIT (UPDATE) EXISTING DOCUMENT
+                db.collection('documents').doc(id).update(docData)
+                    .then(() => { alert("Cập nhật thành công!"); document.getElementById('addDocModal').classList.add('hidden'); })
+                    .catch(e => alert("Lỗi khi cập nhật: " + e.message));
+            } else {
+                // ADD NEW DOCUMENT
+                db.collection('documents').add({...docData, author: currentUser.displayName, createdAt: firebase.firestore.FieldValue.serverTimestamp()})
+                    .then(() => { alert("Thêm tài liệu thành công!"); document.getElementById('addDocModal').classList.add('hidden'); })
+                    .catch(e => alert("Lỗi khi thêm: " + e.message));
+            }
+        }
+
+        // --- FOLDER & RENDER LOGIC ---
+        const listEl = document.getElementById('docsList');
+        function renderFolders() {
+            listEl.innerHTML=''; document.getElementById('breadcrumb').classList.add('hidden');
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            
+            if(q) {
+                const res = allDocs.filter(d => d.title.toLowerCase().includes(q));
+                res.forEach(d => renderDocItem(d));
+                return;
+            }
+
+            Object.keys(folders).forEach(k => {
+                const count = allDocs.filter(d=>d.folder===k).length;
+                listEl.innerHTML += `<div onclick="openFolder('${k}')" class="glass-card p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:border-blue-400 border border-transparent"><div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl text-blue-500 shadow"><i class="fa-solid fa-folder"></i></div><div><h3 class="font-bold dark:text-white">${folders[k]}</h3><p class="text-xs text-slate-500">${count} file</p></div></div>`;
+            });
+        }
+        function openFolder(k) {
+            document.getElementById('breadcrumb').classList.remove('hidden'); document.getElementById('curFolder').innerText = folders[k];
+            listEl.innerHTML='';
+            const items = allDocs.filter(d => d.folder === k && (!filterStar || bookmarks.includes(d.id)));
+            if(items.length===0) listEl.innerHTML='<div class="col-span-2 text-center opacity-50 font-bold mt-10">Thư mục trống</div>';
+            items.forEach(d => renderDocItem(d));
+        }
+        function renderDocItem(d) {
+            const isFav = bookmarks.includes(d.id);
+            const editBtn = isAdminMode && d.id.length > 2 ? `<button onclick="openAddDocModal('edit', '${d.id}')" class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-blue-500 transition"><i class="fa-solid fa-pencil-alt text-sm"></i></button>` : '';
+
+            listEl.innerHTML += `
+            <div class="glass-card p-3 rounded-2xl flex items-center gap-3 relative">
+                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><i class="fa-solid fa-file"></i></div>
+                <div class="flex-1 min-w-0"><h4 class="font-bold truncate dark:text-white text-sm">${d.title}</h4><a href="${d.url}" target="_blank" class="text-xs text-blue-500 font-bold uppercase">Mở</a></div>
+                ${editBtn}
+                <button onclick="toggleFav('${d.id}')" class="text-lg ${isFav?'text-yellow-400':'text-slate-300'}"><i class="fa-solid fa-star"></i></button>
+            </div>`;
+        }
+        
+        function toggleFav(id) {
+            if(bookmarks.includes(id)) bookmarks = bookmarks.filter(i=>i!==id); else bookmarks.push(id);
+            localStorage.setItem('mdk_fav', JSON.stringify(bookmarks));
+            const cur = document.getElementById('curFolder').innerText;
+            const key = Object.keys(folders).find(k=>folders[k]===cur);
+            if(key) openFolder(key); else renderFolders();
+        }
+        function toggleStarFilter() { filterStar=!filterStar; document.getElementById('btnStar').classList.toggle('text-yellow-500'); renderFolders(); }
+
+        // --- UTILS (Keep minimum for functionality) ---
+        function switchTab(t) {
+            document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active')); event.currentTarget.classList.add('active');
+            ['docs','drugs','notes','chat','tools'].forEach(v=>document.getElementById('view-'+v).classList.add('hidden', 'flex'));
+            document.getElementById('view-'+t).classList.remove('hidden'); document.getElementById('view-'+t).classList.add('flex');
+        }
+        function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
+        function updateClock() { document.getElementById('date-display').innerText = new Date().toLocaleDateString('vi-VN'); }
+        
+        // Final Init
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>
